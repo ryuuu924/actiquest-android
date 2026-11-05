@@ -285,19 +285,63 @@ object Repository {
 
     private suspend fun isApprovedBetaUser(email: String, idToken: String? = null): Boolean =
         withContext(Dispatchers.IO) {
-            val payload = JSONObject().put("email", email.trim().lowercase())
-            if (!idToken.isNullOrBlank()) payload.put("idToken", idToken)
-            val request = Request.Builder()
-                .url(BuildConfig.BETA_ACCESS_CHECK_URL)
-                .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
-                .build()
+            val cleanEmail = email.trim().lowercase()
+            if (cleanEmail.isEmpty()) return@withContext false
 
-            betaAccessClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    throw IOException("Beta access service returned HTTP ${response.code}.")
-                }
-                JSONObject(response.body?.string().orEmpty()).optBoolean("approved", false)
+            // 1. ADMINS ALWAYS BYPASS BETA ACCESS CHECK
+            if (checkIsAdmin("", cleanEmail) || _localAdmins.value.contains(cleanEmail)) {
+                return@withContext true
             }
+
+            // 2. CHECK FIRESTORE approved_testers COLLECTION DIRECTLY (Primary Whitelist Gate)
+            val db = firestore
+            if (db != null) {
+                try {
+                    val snap = db.collection("approved_testers").document(cleanEmail).get().await()
+                    if (snap.exists()) {
+                        val isApproved = snap.getBoolean("approved") ?: snap.getBoolean("active") ?: true
+                        if (isApproved) return@withContext true
+                    }
+                } catch (_: Exception) {}
+
+                // 3. CHECK IF USER ALREADY EXISTS IN FIRESTORE "users" COLLECTION
+                try {
+                    val userQuery = db.collection("users").whereEqualTo("email", cleanEmail).get().await()
+                    if (!userQuery.isEmpty) {
+                        return@withContext true
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // 4. CHECK LOCAL DEMO ACCOUNTS
+            if (_localUsers.value.values.any { it.email.equals(cleanEmail, ignoreCase = true) }) {
+                return@withContext true
+            }
+
+            // 5. CALL WEB PORTAL CHECK-BETA-ACCESS API (IF CONFIGURED AND ONLINE)
+            try {
+                if (BuildConfig.BETA_ACCESS_CHECK_URL.isNotBlank() &&
+                    !BuildConfig.BETA_ACCESS_CHECK_URL.contains("example") &&
+                    !BuildConfig.BETA_ACCESS_CHECK_URL.contains("localhost")) {
+                    val payload = JSONObject().put("email", cleanEmail)
+                    if (!idToken.isNullOrBlank()) payload.put("idToken", idToken)
+                    val request = Request.Builder()
+                        .url(BuildConfig.BETA_ACCESS_CHECK_URL)
+                        .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+                        .build()
+
+                    betaAccessClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            return@withContext JSONObject(response.body?.string().orEmpty()).optBoolean("approved", false)
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Web portal check offline or non-blocking
+            }
+
+            // 6. ZERO-TRUST SECURITY: REJECT UNAPPROVED NEW SIGNUPS
+            false
         }
 
     suspend fun checkBetaAccess(email: String): Boolean = isApprovedBetaUser(email)

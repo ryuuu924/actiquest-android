@@ -1,0 +1,31 @@
+*.iml
+.gradle
+.kotlin
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.env
+debug.keystore
+google-services.json
+my-release-key.jks
+# Sensitive Keys & Properties
+*.jks
+*.keystore
+# Firebase Services Configuration
+app/google-services.json
+
+# IDE & Build Artifacts
+.gradle/
+build/
+app/build/
+.idea/

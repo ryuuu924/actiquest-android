@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOldAdminEmail() {
+      return request.auth != null && request.auth.token.email in [
+        'actiquest.admin@gmail.com',
+        'new_admin@test.com',
+        'real_admin@test.com'
+      ];
+    }
+
+    function isVerifiedOrOldAdmin() {
+      return request.auth != null && (
+        request.auth.token.email_verified == true ||
+        isOldAdminEmail() ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('requiresEmailVerification', false) == false
+        )
+      );
+    }
+
+    function hasAdminRecord() {
+      return request.auth != null && (
+        (
+          request.auth.token.email != null &&
+          exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()))
+        ) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'
+        )
+      );
+    }
+
+    function isAdmin() {
+      return isOldAdminEmail() || (isVerifiedOrOldAdmin() && hasAdminRecord());
+    }
+
+    function isApprovedBetaUser() {
+      return request.auth != null && (
+        isAdmin() ||
+        (
+          request.auth.token.email != null &&
+          exists(/databases/$(database)/documents/approved_testers/$(request.auth.token.email.lower())) &&
+          get(/databases/$(database)/documents/approved_testers/$(request.auth.token.email.lower())).data.get('approved', true) == true &&
+          get(/databases/$(database)/documents/approved_testers/$(request.auth.token.email.lower())).data.get('active', true) == true
+        )
+      );
+    }
+
+    function canUseApp() {
+      return isApprovedBetaUser() && isVerifiedOrOldAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId || canUseApp()
+      );
+      allow create: if isAdmin() || (
+        isApprovedBetaUser() &&
+        request.auth.uid == userId &&
+        request.resource.data.get('role', 'student') == 'student'
+      );
+      allow update: if isAdmin() || (
+        canUseApp() &&
+        request.auth.uid == userId &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'role'])
+      );
+    }
+
+    match /approved_testers/{emailDoc} {
+      allow get: if isAdmin() || (
+        request.auth != null &&
+        request.auth.token.email != null &&
+        emailDoc == request.auth.token.email.lower()
+      );
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /admins/{docId} {
+      allow read: if canUseApp();
+      allow write: if isAdmin();
+    }
+
+    match /submissions/{submissionId} {
+      allow read: if canUseApp() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() ||
+        resource.data.status == 'approved'
+      );
+      allow create: if canUseApp() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.submittedAt == request.time;
+      allow update: if isAdmin() || (
+        canUseApp() &&
+        resource.data.userId == request.auth.uid &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'submittedAt', 'reviewedAt', 'status', 'awardedPoints'
+        ])
+      );
+    }
+
+    match /classes/{classId} {
+      allow read: if canUseApp();
+      allow write: if isAdmin();
+    }
+
+    match /quests/{questId} {
+      allow read: if canUseApp();
+      allow write: if isAdmin();
+    }
+
+    match /academic_requests/{requestId} {
+      allow read: if canUseApp() && (
+        isAdmin() || resource.data.userId == request.auth.uid
+      );
+      allow create: if canUseApp() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if canUseApp() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create: if canUseApp() && (
+        request.resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow update: if canUseApp() && (
+        isAdmin() ||
+        (
+          resource.data.userId == request.auth.uid &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        )
+      );
+      allow delete: if canUseApp() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+    }
+  }
+}

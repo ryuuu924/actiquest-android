@@ -45,7 +45,7 @@ fun PrivacyAndTermsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (selectedTab == 0) "PRIVACY POLICY" else "TERMS OF SERVICE",
+                        if (selectedTab == 0) "PRIVACY POLICY" else "TERMS OF USE",
                         style = MaterialTheme.typography.titleMedium,
                         fontFamily = SfBoldFontFamily,
                         fontWeight = FontWeight.Black,
@@ -80,7 +80,7 @@ fun PrivacyAndTermsScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Tab Switcher (Privacy Policy vs Terms of Service)
+            // Tab Switcher (Privacy Policy vs Terms of Use)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -142,7 +142,7 @@ fun PrivacyAndTermsScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            "Terms of Service",
+                            "Terms of Use",
                             fontFamily = SfBoldFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.5.sp,
@@ -181,7 +181,7 @@ fun PrivacyAndTermsScreen(
                             Icon(Icons.Default.Shield, contentDescription = null, tint = MintEmerald, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "ActiQuest Official Privacy Policy",
+                                "ActiQuest Privacy Policy",
                                 fontFamily = SfBoldFontFamily,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 16.sp,
@@ -190,7 +190,7 @@ fun PrivacyAndTermsScreen(
                         }
 
                         Text(
-                            "Last updated: November 2026 • Version 1.2.0",
+                            "ActiQuest beta web portal and Android application · Version 1.2.0-beta",
                             fontSize = 11.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) SlateLight else LightTextSecondary
@@ -199,14 +199,14 @@ fun PrivacyAndTermsScreen(
                         HorizontalDivider(color = if (isDark) SurfaceElevatedHigh else Color(0xFFE2E8F0))
 
                         Text(
-                            "1. Information We Collect",
+                            "1. Information Handled During the Beta",
                             fontFamily = SfBoldFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = CobaltBlue
                         )
                         Text(
-                            "ActiQuest collects minimal personal data required for campus wellness verification: full name, student email, college, degree program, section, and user-submitted video or screenshot evidence.",
+                            "Depending on the features you use, ActiQuest may process your email address and Firebase account identifier, display name, college or department affiliation, quest activity and points, accessibility preference, consent choices, and beta security/audit logs. Audit logs include timestamps, account identifiers when available, event type, endpoint, and whether a request was anomalous. The app does not ask for or collect your date of birth.",
                             fontSize = 12.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) Color.White else LightTextPrimary,
@@ -214,14 +214,14 @@ fun PrivacyAndTermsScreen(
                         )
 
                         Text(
-                            "2. How Information is Used",
+                            "2. Motion Proofs & Local Processing",
                             fontFamily = SfBoldFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = CobaltBlue
                         )
                         Text(
-                            "Your data is used strictly to credit activity points to your individual profile and official class standings, generate streak statistics, and allow faculty reviewers to verify physical quest completion.",
+                            "Motion proofs are processed locally where supported and minimized to what is needed to verify a quest. If you choose to submit evidence in another ActiQuest feature, only provide the minimum material needed; uploaded evidence is handled securely by project storage services.",
                             fontSize = 12.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) Color.White else LightTextPrimary,
@@ -229,14 +229,14 @@ fun PrivacyAndTermsScreen(
                         )
 
                         Text(
-                            "3. Data Security & Storage",
+                            "3. Purposes & Lawful Handling (RA 10173 & NPC Circular 2023-04)",
                             fontFamily = SfBoldFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = CobaltBlue
                         )
                         Text(
-                            "All submissions are stored securely in Google Cloud Firestore and encrypted Firebase Storage. Access is protected by strict role-based Firestore Security Rules.",
+                            "Information supports authentication, approved beta access, policy-consent records, account preferences, quest administration, college/department standings, user-requested exports/deletion, and service security. Information is handled only for these stated purposes in proportion to the feature being used (Proportionality Principle). Public leaderboard standings display Academic College names and aggregate totals only.",
                             fontSize = 12.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) Color.White else LightTextPrimary,
@@ -244,26 +244,56 @@ fun PrivacyAndTermsScreen(
                         )
 
                         Text(
-                            "4. Contact & Account Removal",
+                            "4. Storage & Service Providers",
                             fontFamily = SfBoldFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = CobaltBlue
                         )
                         Text(
-                            "To request data deletion or account removal, contact the ActiQuest administrator at yuriyabut924@gmail.com",
+                            "The app uses Firebase Authentication and Cloud Firestore through the project's configured Firebase infrastructure. Vercel hosts companion portal API routes. These providers process data under their own privacy commitments.",
+                            fontSize = 12.sp,
+                            fontFamily = SfSemiFontFamily,
+                            color = if (isDark) Color.White else LightTextPrimary,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            "5. Retention & Data Subject Rights",
+                            fontFamily = SfBoldFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = CobaltBlue
+                        )
+                        Text(
+                            "Beta test data will be wiped or anonymized when the beta is completed. Under the Data Privacy Act of 2012 (RA 10173), you may request access to, correction of, or objection to processing of your personal data; request erasure or blocking where applicable; and request data portability via Account Settings or by emailing yuriyabut924@gmail.com.",
+                            fontSize = 12.sp,
+                            fontFamily = SfSemiFontFamily,
+                            color = if (isDark) Color.White else LightTextPrimary,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            "6. Age & Guardian Consent",
+                            fontFamily = SfBoldFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = CobaltBlue
+                        )
+                        Text(
+                            "Beta self-activation is limited to people aged 18 or older. Users under 18 cannot activate an account through self-service; a parent or legal guardian must contact the project team through the user's school, and access remains inactive until independent guardian verification is complete.",
                             fontSize = 12.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) Color.White else LightTextPrimary,
                             lineHeight = 18.sp
                         )
                     } else {
-                        // TERMS OF SERVICE CONTENT
+                        // TERMS OF USE CONTENT
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Description, contentDescription = null, tint = CobaltBlue, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "ActiQuest Terms of Service",
+                                "ActiQuest Terms of Use",
                                 fontFamily = SfBoldFontFamily,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 16.sp,
@@ -272,7 +302,7 @@ fun PrivacyAndTermsScreen(
                         }
 
                         Text(
-                            "Last updated: November 2026 • Version 1.2.0",
+                            "ActiQuest beta web portal and Android application · Version 1.2.0-beta",
                             fontSize = 11.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) SlateLight else LightTextSecondary
@@ -281,14 +311,14 @@ fun PrivacyAndTermsScreen(
                         HorizontalDivider(color = if (isDark) SurfaceElevatedHigh else Color(0xFFE2E8F0))
 
                         Text(
-                            "1. Student Conduct & Honest Proof",
+                            "1. Beta Access & Electronic Acceptance",
                             fontFamily = SfBoldFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = CobaltBlue
                         )
                         Text(
-                            "Users agree to submit authentic physical fitness proof. Submitting fraudulent video reps, manipulated pedometer screenshots, or unauthorized QR code scans will result in submission rejection and point deduction.",
+                            "ActiQuest is a limited beta for approved testers. Access is subject to account verification, age eligibility or independently verified parent/guardian consent, and electronic acceptance of current Terms of Use and Privacy Policy. Do not share beta links or credentials with unauthorized people.",
                             fontSize = 12.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) Color.White else LightTextPrimary,
@@ -296,14 +326,14 @@ fun PrivacyAndTermsScreen(
                         )
 
                         Text(
-                            "2. Institutional Account Requirements",
+                            "2. Physical Safety & Health Disclaimer",
                             fontFamily = SfBoldFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = CobaltBlue
                         )
                         Text(
-                            "ActiQuest is restricted to authorized student developers, faculty reviewers, and approved beta testers. Unverified accounts or non-whitelisted emails are subject to account suspension.",
+                            "Participation in wellness and physical activities is voluntary. Follow all campus rules, posted safety instructions, and directions from authorized campus staff. Participate only when medically fit and within your physical limits. ActiQuest is not a medical service and does not provide medical advice or emergency assistance. Accessible or stationary quest options are offered without disadvantaging participants in points or standings.",
                             fontSize = 12.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) Color.White else LightTextPrimary,
@@ -311,14 +341,44 @@ fun PrivacyAndTermsScreen(
                         )
 
                         Text(
-                            "3. Verification Desk Authority",
+                            "3. Intellectual Property (RA 8293)",
                             fontFamily = SfBoldFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = CobaltBlue
                         )
                         Text(
-                            "University faculty reviewers and admins reserve the authority to award partial points, request submission retakes, or reject non-compliant proof.",
+                            "ActiQuest's original software, branding, quest materials, and creator-owned works remain the property of their respective creator or rights holder under the Philippine Intellectual Property Code (Republic Act No. 8293). Do not remove attribution or use protected materials beyond applicable license terms.",
+                            fontSize = 12.sp,
+                            fontFamily = SfSemiFontFamily,
+                            color = if (isDark) Color.White else LightTextPrimary,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            "4. Fair Play & Prohibited Conduct (RA 10175)",
+                            fontFamily = SfBoldFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = CobaltBlue
+                        )
+                        Text(
+                            "Under the Cybercrime Prevention Act of 2012 (RA 10175), users shall not spoof GPS or sensor readings, tamper with QR codes/markers, falsify motion evidence, use modified APKs, impersonate participants, manipulate standings, bypass access controls, or interfere with backend operation.",
+                            fontSize = 12.sp,
+                            fontFamily = SfSemiFontFamily,
+                            color = if (isDark) Color.White else LightTextPrimary,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            "5. Accessibility & Inclusive Participation",
+                            fontFamily = SfBoldFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = CobaltBlue
+                        )
+                        Text(
+                            "Participants may enable Adaptive / Accessible Mode in Account Settings. The preference identifies stationary or accessible quest options. Approved accessible quests contribute points on the same basis as comparable quests without penalty.",
                             fontSize = 12.sp,
                             fontFamily = SfSemiFontFamily,
                             color = if (isDark) Color.White else LightTextPrimary,

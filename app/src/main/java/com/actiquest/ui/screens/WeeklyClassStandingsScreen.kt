@@ -69,14 +69,24 @@ fun WeeklyClassStandingsScreen(navController: NavController) {
     }
 
     val filteredClasses = remember(classesState, selectedCollege, selectedProgram) {
-        classesState.filter { cls ->
-            val matchCollege = (selectedCollege == "All" || cls.college.equals(selectedCollege, ignoreCase = true) || cls.classId.startsWith(selectedCollege))
-            val matchProgram = (selectedProgram == "All" || cls.program.equals(selectedProgram, ignoreCase = true) || cls.name.contains(selectedProgram, ignoreCase = true))
+        val baseList = if (classesState.isNotEmpty()) classesState else Repository.getClasses()
+        baseList.filter { cls ->
+            val matchCollege = (
+                selectedCollege == "All" ||
+                cls.college.equals(selectedCollege, ignoreCase = true) ||
+                cls.classId.startsWith(selectedCollege, ignoreCase = true)
+            )
+            val matchProgram = (
+                selectedProgram == "All" ||
+                cls.program.equals(selectedProgram, ignoreCase = true) ||
+                cls.name.contains(selectedProgram, ignoreCase = true) ||
+                cls.classId.contains(selectedProgram, ignoreCase = true)
+            )
             matchCollege && matchProgram
         }.sortedByDescending { it.totalPoints }
     }
 
-    val topScore = classesState.maxOfOrNull { it.totalPoints } ?: 1
+    val topScore = maxOf((if (classesState.isNotEmpty()) classesState else Repository.getClasses()).maxOfOrNull { it.totalPoints } ?: 1, 1)
 
     Scaffold(
         containerColor = if (isDark) DarkNavyBackground else LightBackground,

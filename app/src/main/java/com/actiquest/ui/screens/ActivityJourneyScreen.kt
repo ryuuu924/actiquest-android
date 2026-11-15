@@ -79,7 +79,9 @@ fun ActivityJourneyScreen(
     val allJourneyItems: List<ActivityJourneyItem> = remember(userSubmissions, currentUserId) {
         userSubmissions
             .filter { it.userId == currentUserId && it.submittedAt > 0L }
-            .sortedByDescending { it.submittedAt }
+            .sortedByDescending { sub ->
+                if (sub.status.lowercase() == "approved" && sub.reviewedAt != null && sub.reviewedAt > 0L) sub.reviewedAt else sub.submittedAt
+            }
             .map { sub ->
                 val cat = when {
                     sub.submissionType == "video" -> "Campus Quest"
@@ -98,12 +100,17 @@ fun ActivityJourneyScreen(
                     "rejected" -> "Rejected"
                     else -> "In Review"
                 }
+                val effectiveTs = if (sub.status.lowercase() == "approved" && sub.reviewedAt != null && sub.reviewedAt > 0L) {
+                    sub.reviewedAt
+                } else {
+                    sub.submittedAt
+                }
                 ActivityJourneyItem(
                     id = sub.submissionId,
                     title = sub.questTitle.ifEmpty { "Fitness Challenge" },
                     category = cat,
                     pointValue = sub.awardedPoints ?: sub.pointValue,
-                    timestamp = sub.submittedAt,
+                    timestamp = effectiveTs,
                     durationOrMetric = metric,
                     status = stat
                 )
@@ -127,7 +134,7 @@ fun ActivityJourneyScreen(
     val thisMonday = remember(today) { today.minusDays((dayOfWeekVal - 1).toLong()) }
     val thisSunday = remember(today) { thisMonday.plusDays(6) }
 
-    // Period Points & Goal Target calculation
+    // Period Points & Goal Target calculation (Factual and unique per user)
     val (periodEarnedPoints, periodTargetPoints, periodLabel) = remember(
         viewMode, allJourneyItems, user.totalPoints, user.targetPoints, currentYearMonth, thisMonday, thisSunday
     ) {
@@ -138,9 +145,8 @@ fun ActivityJourneyScreen(
                     !itemDate.isBefore(thisMonday) && !itemDate.isAfter(thisSunday)
                 }
                 val pts = weekItems.filter { it.status == "Approved" }.sumOf { it.pointValue }
-                val displayPts = if (pts > 0) pts else (user.totalPoints / 4).coerceAtLeast(60).coerceAtMost(user.totalPoints)
                 val target = (user.targetPoints / 4).coerceAtLeast(100)
-                Triple(displayPts, target, "Weekly Goal Progress")
+                Triple(pts, target, "Weekly Goal Progress")
             }
             "All-Time" -> {
                 val pts = user.totalPoints
@@ -153,9 +159,8 @@ fun ActivityJourneyScreen(
                     itemDate.year == currentYearMonth.year && itemDate.monthValue == currentYearMonth.monthValue
                 }
                 val pts = monthItems.filter { it.status == "Approved" }.sumOf { it.pointValue }
-                val displayPts = if (pts > 0) pts else user.totalPoints
                 val target = user.targetPoints.coerceAtLeast(1)
-                Triple(displayPts, target, "Monthly Goal Progress")
+                Triple(pts, target, "Monthly Goal Progress")
             }
         }
     }

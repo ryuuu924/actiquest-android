@@ -1,7 +1,9 @@
 package com.actiquest.domain
 
+import androidx.annotation.Keep
 import java.util.UUID
 
+@Keep
 data class User(
     val uid: String = "",
     val name: String = "",
@@ -11,7 +13,7 @@ data class User(
     val college: String = "CITE",
     val program: String = "BS Computer Science",
     val yearLevel: String = "1st Year",
-    val section: String = "1A",
+    val section: String = "Section A",
     val classId: String = "CITE-BSCS-1A",
     val totalPoints: Int = 0,
     val targetPoints: Int = 500,
@@ -22,9 +24,35 @@ data class User(
     val consentGiven: Boolean = true,
     val profilePicUri: String = "",
     val nickname: String = "",
+    val adaptiveMode: Boolean = false,
     val pendingAcademicUpdate: Boolean = false,
     val pendingAcademicDetails: String = ""
 ) {
+    fun toFirestoreMap(): Map<String, Any?> = mapOf(
+        "uid" to uid,
+        "name" to name,
+        "firstName" to firstName,
+        "lastName" to lastName,
+        "email" to email,
+        "college" to college,
+        "program" to program,
+        "yearLevel" to yearLevel,
+        "section" to section,
+        "classId" to classId,
+        "totalPoints" to totalPoints,
+        "targetPoints" to targetPoints,
+        "streak" to streak,
+        "badges" to badges,
+        "approvedCount" to approvedCount,
+        "expoPushToken" to expoPushToken,
+        "consentGiven" to consentGiven,
+        "profilePicUri" to profilePicUri,
+        "nickname" to nickname,
+        "adaptiveMode" to adaptiveMode,
+        "pendingAcademicUpdate" to pendingAcademicUpdate,
+        "pendingAcademicDetails" to pendingAcademicDetails
+    )
+
     fun getDisplayName(): String {
         if (nickname.isNotBlank()) return nickname.trim()
         if (firstName.isNotBlank()) return firstName.trim()
@@ -46,6 +74,7 @@ data class User(
     }
 }
 
+@Keep
 data class AcademicChangeRequest(
     val requestId: String = UUID.randomUUID().toString(),
     val userId: String = "",
@@ -66,12 +95,14 @@ data class AcademicChangeRequest(
     val reviewerNote: String? = null
 )
 
+@Keep
 data class College(
     val code: String,
     val name: String,
     val programs: List<String>
 )
 
+@Keep
 data class ClassModel(
     val classId: String = "",
     val name: String = "",
@@ -81,8 +112,20 @@ data class ClassModel(
     val section: String = "",
     val totalPoints: Int = 0,
     val memberCount: Int = 0
-)
+) {
+    fun toFirestoreMap(): Map<String, Any> = mapOf(
+        "classId" to classId,
+        "name" to name,
+        "college" to college,
+        "program" to program,
+        "yearLevel" to yearLevel,
+        "section" to section,
+        "totalPoints" to totalPoints,
+        "memberCount" to memberCount
+    )
+}
 
+@Keep
 data class Quest(
     val questCode: String = "",
     val title: String = "",
@@ -99,6 +142,7 @@ data class Quest(
     val maximumVideoSizeBytes: Long = 0L
 )
 
+@Keep
 data class Submission(
     val submissionId: String = UUID.randomUUID().toString(),
     val userId: String = "",
@@ -182,6 +226,7 @@ data class Submission(
     }
 }
 
+@Keep
 data class Badge(
     val id: String,
     val title: String,
@@ -408,6 +453,7 @@ object SeedQuests {
     )
 }
 
+@Keep
 data class AppNotification(
     val id: String = UUID.randomUUID().toString(),
     val userId: String = "",
@@ -420,6 +466,7 @@ data class AppNotification(
     val relatedId: String = ""
 )
 
+@Keep
 data class ActivityJourneyItem(
     val id: String = UUID.randomUUID().toString(),
     val title: String = "",
@@ -429,4 +476,3 @@ data class ActivityJourneyItem(
     val durationOrMetric: String = "Completed",
     val status: String = "Approved" // Approved, Pending
 )
-

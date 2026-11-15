@@ -755,6 +755,8 @@ fun DailyActivityBarChart(
             }
 
             // 7 Bars with anim
+            val maxPointInWeek = remember(activeWeekData) { activeWeekData.maxOfOrNull { it.second } ?: 0 }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -765,7 +767,11 @@ fun DailyActivityBarChart(
                 activeWeekData.forEachIndexed { idx, pair ->
                     val isCurrentDay = idx == effectiveActiveIndex
                     val fraction = if (pair.second > 0) {
-                        (pair.second.toFloat() / maxPoint).coerceIn(0.18f, 1f)
+                        if (maxPointInWeek > 0) {
+                            (0.20f + (pair.second.toFloat() / maxPointInWeek.toFloat()) * 0.80f).coerceIn(0.20f, 1f)
+                        } else {
+                            0.20f
+                        }
                     } else {
                         0.08f
                     }

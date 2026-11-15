@@ -296,6 +296,7 @@ object Repository {
             // 2. CHECK FIRESTORE approved_testers COLLECTION DIRECTLY (Primary Whitelist Gate)
             val db = firestore
             if (db != null) {
+                // Check A: Direct document ID match (e.g. document ID is "user@dlsl.edu.ph")
                 try {
                     val snap = db.collection("approved_testers").document(cleanEmail).get().await()
                     if (snap.exists()) {
@@ -304,21 +305,22 @@ object Repository {
                     }
                 } catch (_: Exception) {}
 
-                // 3. CHECK IF USER ALREADY EXISTS IN FIRESTORE "users" COLLECTION
+                // Check B: Query by "email" field in approved_testers collection
                 try {
-                    val userQuery = db.collection("users").whereEqualTo("email", cleanEmail).get().await()
-                    if (!userQuery.isEmpty) {
-                        return@withContext true
+                    val querySnap = db.collection("approved_testers")
+                        .whereEqualTo("email", cleanEmail)
+                        .get().await()
+                    if (!querySnap.isEmpty) {
+                        val doc = querySnap.documents.firstOrNull()
+                        if (doc != null) {
+                            val isApproved = doc.getBoolean("approved") ?: doc.getBoolean("active") ?: true
+                            if (isApproved) return@withContext true
+                        }
                     }
                 } catch (_: Exception) {}
             }
 
-            // 4. CHECK LOCAL DEMO ACCOUNTS
-            if (_localUsers.value.values.any { it.email.equals(cleanEmail, ignoreCase = true) }) {
-                return@withContext true
-            }
-
-            // 5. CALL WEB PORTAL CHECK-BETA-ACCESS API (IF CONFIGURED AND ONLINE)
+            // 3. CALL WEB PORTAL CHECK-BETA-ACCESS API (IF CONFIGURED AND ONLINE)
             try {
                 if (BuildConfig.BETA_ACCESS_CHECK_URL.isNotBlank() &&
                     !BuildConfig.BETA_ACCESS_CHECK_URL.contains("example") &&
@@ -340,7 +342,7 @@ object Repository {
                 // Web portal check offline or non-blocking
             }
 
-            // 6. ZERO-TRUST SECURITY: REJECT UNAPPROVED NEW SIGNUPS
+            // 4. ZERO-TRUST SECURITY: REJECT ALL UNAPPROVED USERS (OLD AND NEW)
             false
         }
 
@@ -364,6 +366,8 @@ object Repository {
                         "This email is already registered. Please sign in."
                     msg.contains("network", ignoreCase = true) ->
                         "Network error. Please verify your connection."
+                    msg.contains("blocked", ignoreCase = true) || msg.contains("Requests from this Android client application", ignoreCase = true) ->
+                        "Google API Request Blocked: Your app's SHA-1 fingerprint is missing or API key restrictions are blocking Firebase Auth in Google Cloud/Firebase Console. Please register your debug/release SHA-1 fingerprint in Firebase Console (Project Settings > Your apps)."
                     else -> msg
                 }
             }
@@ -386,31 +390,75 @@ object Repository {
     }
 
     fun parseUserFromSnapshot(snap: DocumentSnapshot, uid: String, fallbackEmail: String = ""): User {
-        val email = snap.getString("email") ?: fallbackEmail
-        val rawName = snap.getString("name") ?: email.substringBefore("@").replace(".", " ").capitalizeWords()
-        val firstName = snap.getString("firstName") ?: rawName.split(" ").firstOrNull() ?: "Student"
-        val lastName = snap.getString("lastName") ?: rawName.split(" ").drop(1).joinToString(" ")
-        val college = snap.getString("college") ?: "CITE"
-        val program = snap.getString("program") ?: "BS Computer Science"
-        val yearLevel = snap.getString("yearLevel") ?: "1st Year"
-        val section = snap.getString("section") ?: "Section A"
+        val data = snap.data ?: emptyMap<String, Any?>()
+
+        val email = snap.getString("email") 
+            ?: snap.getString("e") 
+            ?: fallbackEmail
+        val rawName = snap.getString("name") 
+            ?: snap.getString("b") 
+            ?: email.substringBefore("@").replace(".", " ").capitalizeWords()
+        val firstName = snap.getString("firstName") 
+            ?: snap.getString("c") 
+            ?: rawName.split(" ").firstOrNull() 
+            ?: "Student"
+        val lastName = snap.getString("lastName") 
+            ?: snap.getString("d") 
+            ?: rawName.split(" ").drop(1).joinToString(" ")
+        val college = snap.getString("college") 
+            ?: snap.getString("f") 
+            ?: "CITE"
+        val program = snap.getString("program") 
+            ?: snap.getString("g") 
+            ?: "BS Computer Science"
+        val yearLevel = snap.getString("yearLevel") 
+            ?: snap.getString("h") 
+            ?: "1st Year"
+        val section = snap.getString("section") 
+            ?: snap.getString("i") 
+            ?: "Section A"
+        
         val computedClassId = buildClassId(college, program, yearLevel, section)
-        val rawStoredClassId = snap.getString("classId") ?: ""
+        val rawStoredClassId = snap.getString("classId") ?: snap.getString("j") ?: ""
         val effectiveClassId = if (rawStoredClassId.isNotBlank() && normalizeClassId(rawStoredClassId) == normalizeClassId(computedClassId)) {
             rawStoredClassId
         } else {
             computedClassId
         }
-        val totalPoints = snap.getLong("totalPoints")?.toInt() ?: 0
-        val targetPoints = snap.getLong("targetPoints")?.toInt() ?: 500
-        val streak = snap.getLong("streak")?.toInt() ?: 1
-        val badges = (snap.get("badges") as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
-        val approvedCount = snap.getLong("approvedCount")?.toInt() ?: 0
-        val profilePicUri = snap.getString("profilePicUri") ?: ""
-        val nickname = snap.getString("nickname") ?: ""
+        val totalPoints = (data["totalPoints"] as? Number)?.toInt() 
+            ?: (data["k"] as? Number)?.toInt() 
+            ?: 0
+        val targetPoints = (data["targetPoints"] as? Number)?.toInt() 
+            ?: (data["l"] as? Number)?.toInt() 
+            ?: 500
+        val streak = (data["streak"] as? Number)?.toInt() 
+            ?: (data["m"] as? Number)?.toInt() 
+            ?: 1
+        val badges = (snap.get("badges") as? List<*>)?.mapNotNull { it?.toString() } 
+            ?: (snap.get("n") as? List<*>)?.mapNotNull { it?.toString() } 
+            ?: emptyList()
+        val approvedCount = (data["approvedCount"] as? Number)?.toInt() 
+            ?: (data["o"] as? Number)?.toInt() 
+            ?: 0
+        val profilePicUri = snap.getString("profilePicUri") 
+            ?: snap.getString("r") 
+            ?: snap.getString("p") 
+            ?: ""
+        val nickname = snap.getString("nickname") 
+            ?: snap.getString("s") 
+            ?: ""
+        val adaptiveMode = snap.getBoolean("adaptiveMode") 
+            ?: snap.getBoolean("t") 
+            ?: false
+        val pendingAcademicUpdate = snap.getBoolean("pendingAcademicUpdate") 
+            ?: snap.getBoolean("u") 
+            ?: false
+        val pendingAcademicDetails = snap.getString("pendingAcademicDetails") 
+            ?: snap.getString("v") 
+            ?: ""
 
         return User(
-            uid = uid,
+            uid = uid.ifEmpty { snap.getString("a") ?: "" },
             name = rawName,
             firstName = firstName,
             lastName = lastName,
@@ -426,7 +474,10 @@ object Repository {
             badges = badges,
             approvedCount = approvedCount,
             profilePicUri = profilePicUri,
-            nickname = nickname
+            nickname = nickname,
+            adaptiveMode = adaptiveMode,
+            pendingAcademicUpdate = pendingAcademicUpdate,
+            pendingAcademicDetails = pendingAcademicDetails
         )
     }
 
@@ -473,6 +524,9 @@ object Repository {
             } catch (e: Exception) {
                 if (e is FirebaseNetworkException) {
                     return AuthResult.Error("Network error. Please check your internet connection.")
+                }
+                if (e.message?.contains("blocked", ignoreCase = true) == true || e.message?.contains("Requests from this Android client application", ignoreCase = true) == true) {
+                    return AuthResult.Error(formatFirebaseErrorMessage(e))
                 }
                 // Catch all auth exceptions cleanly and show generic error on login to prevent email enumeration
                 return AuthResult.Error("Invalid credentials. Please verify your email and password.")
@@ -557,7 +611,7 @@ object Repository {
 
                 // Write user to Firestore so subsequent loads retrieve the full profile
                 try {
-                    db?.collection("users")?.document(uid)?.set(userDoc, SetOptions.merge())?.await()
+                    db?.collection("users")?.document(uid)?.set(userDoc.toFirestoreMap(), SetOptions.merge())?.await()
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -771,7 +825,7 @@ object Repository {
                             totalPoints = existingTotalPoints,
                             yearLevel = yearLevel
                         )
-                        classRef.set(classData, SetOptions.merge()).await()
+                        classRef.set(classData.toFirestoreMap(), SetOptions.merge()).await()
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -1098,6 +1152,67 @@ object Repository {
 
     private var lastReconcileTime = 0L
 
+    fun getClasses(): List<ClassModel> = _localClasses.value.sortedByDescending { it.totalPoints }
+
+    fun parseClassFromSnapshot(doc: DocumentSnapshot): ClassModel? {
+        return try {
+            val data = doc.data ?: emptyMap<String, Any?>()
+            val classId = doc.getString("classId") 
+                ?: doc.getString("a") 
+                ?: doc.id
+            if (classId.isBlank()) return null
+
+            val name = doc.getString("name") 
+                ?: doc.getString("b") 
+                ?: ""
+            val college = doc.getString("college") 
+                ?: doc.getString("c") 
+                ?: ""
+            val program = doc.getString("program") 
+                ?: doc.getString("d") 
+                ?: ""
+            val yearLevel = doc.getString("yearLevel") 
+                ?: doc.getString("e") 
+                ?: ""
+            val section = doc.getString("section") 
+                ?: doc.getString("f") 
+                ?: ""
+            val totalPoints = (data["totalPoints"] as? Number)?.toInt()
+                ?: (data["g"] as? Number)?.toInt()
+                ?: data["totalPoints"]?.toString()?.toIntOrNull()
+                ?: 0
+            val memberCount = (data["memberCount"] as? Number)?.toInt()
+                ?: (data["h"] as? Number)?.toInt()
+                ?: data["memberCount"]?.toString()?.toIntOrNull()
+                ?: 0
+
+            val fallback = parseClassMetadataFromId(classId)
+            val model = ClassModel(
+                classId = classId,
+                name = name.ifBlank { fallback.name },
+                college = college.ifBlank { fallback.college },
+                program = program.ifBlank { fallback.program },
+                yearLevel = yearLevel.ifBlank { fallback.yearLevel },
+                section = section.ifBlank { fallback.section },
+                totalPoints = totalPoints,
+                memberCount = memberCount
+            )
+
+            // Auto-heal obfuscated class document in Firestore
+            if (data.containsKey("a") || data.containsKey("b") || data.containsKey("c")) {
+                kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                    try {
+                        firestore?.collection("classes")?.document(classId)?.set(model.toFirestoreMap(), SetOptions.merge())
+                    } catch (_: Exception) {}
+                }
+            }
+
+            model
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun listenClasses(): Flow<List<ClassModel>> = callbackFlow {
         val db = firestore
         if (db != null) {
@@ -1120,14 +1235,16 @@ object Repository {
                         return@addSnapshotListener
                     }
                     if (snapshot != null && !snapshot.isEmpty) {
-                        val list = snapshot.documents.mapNotNull { doc ->
-                            try {
-                                val model = doc.toObject(ClassModel::class.java) ?: return@mapNotNull null
-                                val effId = model.classId.ifEmpty { doc.id }
-                                model.copy(classId = effId)
-                            } catch (e: Exception) { null }
-                        }.sortedByDescending { it.totalPoints }
-                        trySend(list)
+                        val parsedList = snapshot.documents.mapNotNull { doc ->
+                            parseClassFromSnapshot(doc)
+                        }
+                        val mergedMap = _localClasses.value.associateBy { normalizeClassId(it.classId) }.toMutableMap()
+                        for (cls in parsedList) {
+                            val normId = normalizeClassId(cls.classId)
+                            mergedMap[normId] = cls
+                        }
+                        val finalList = mergedMap.values.sortedByDescending { it.totalPoints }
+                        trySend(finalList)
                     } else {
                         trySend(_localClasses.value.sortedByDescending { it.totalPoints })
                     }
@@ -1153,10 +1270,17 @@ object Repository {
             val status = data["status"]?.toString() ?: "pending"
 
             val rawSubmitted = data["submittedAt"]
-            val submittedAtMillis = DateTimeUtils.parseToEpochMillis(rawSubmitted)
+            var submittedAtMillis = DateTimeUtils.parseToEpochMillis(rawSubmitted)
 
             val rawReviewed = data["reviewedAt"]
-            val reviewedAtMillis = if (rawReviewed != null) DateTimeUtils.parseToEpochMillis(rawReviewed) else null
+            var reviewedAtMillis = if (rawReviewed != null) DateTimeUtils.parseToEpochMillis(rawReviewed) else null
+
+            if (submittedAtMillis == 0L && reviewedAtMillis != null && reviewedAtMillis > 0L) {
+                submittedAtMillis = reviewedAtMillis
+            }
+            if (submittedAtMillis == 0L) {
+                submittedAtMillis = System.currentTimeMillis()
+            }
 
             val reviewerNote = data["reviewerNote"]?.toString()
             val submissionType = data["submissionType"]?.toString() ?: "video"
@@ -1988,6 +2112,29 @@ object Repository {
         return true
     }
 
+    suspend fun updateAdaptiveMode(uid: String, enabled: Boolean): Boolean {
+        val user = _localUsers.value[uid] ?: _currentUser.value ?: return false
+        val updated = user.copy(adaptiveMode = enabled)
+
+        val db = firestore
+        if (db != null) {
+            try {
+                db.collection("users").document(uid).set(mapOf("adaptiveMode" to enabled), SetOptions.merge()).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return false
+            }
+        }
+
+        val currentUsers = _localUsers.value.toMutableListMap()
+        currentUsers[uid] = updated
+        _localUsers.value = currentUsers
+        if (_currentUserId.value == uid) {
+            _currentUser.value = updated
+        }
+        return true
+    }
+
     suspend fun updateUserProfile(
         uid: String,
         name: String,
@@ -2025,7 +2172,7 @@ object Repository {
         val db = firestore
         if (db != null) {
             try {
-                db.collection("users").document(uid).set(updated, SetOptions.merge()).await()
+                db.collection("users").document(uid).set(updated.toFirestoreMap(), SetOptions.merge()).await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -2416,10 +2563,11 @@ object Repository {
                 }
             }
 
-            // Combine all class IDs (both existing class documents in Firestore and registered user class IDs)
+            // Combine all class IDs (existing class docs, registered user class IDs, and base campus classes)
             val allClassIds = mutableSetOf<String>()
             existingClassDocs.forEach { allClassIds.add(it.id) }
             studentsByClass.keys.forEach { allClassIds.add(it) }
+            _localClasses.value.forEach { allClassIds.add(it.classId) }
 
             // Process every class document and fill all 8 fields to bridge all gaps
             for (docId in allClassIds) {

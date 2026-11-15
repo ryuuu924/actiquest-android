@@ -17,6 +17,16 @@ android {
     .orElse("https://actiquest-web.vercel.app/api/check-beta-access")
     .get()
 
+  val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID")
+    .get()
+
+  val apiKey = providers.gradleProperty("MY_API_KEY")
+    .getOrElse("")
+
+  if (apiKey.isEmpty()) {
+    logger.warn("⚠️ MY_API_KEY is missing! API-dependent features will fail at runtime.")
+  }
+
   defaultConfig {
     applicationId = "com.actiquest"
     minSdk = 24
@@ -24,7 +34,8 @@ android {
     versionCode = 2
     versionName = "1.2"
     buildConfigField("String", "BETA_ACCESS_CHECK_URL", "\"$betaAccessCheckUrl\"")
-
+    buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+    buildConfigField("String", "API_KEY", "\"$apiKey\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 

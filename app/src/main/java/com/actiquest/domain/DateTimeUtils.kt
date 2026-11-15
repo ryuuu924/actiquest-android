@@ -209,9 +209,16 @@ object DateTimeUtils {
         val today = LocalDate.now(ZoneId.of("Asia/Manila"))
         val activeDates = submissions
             .asSequence()
-            .filter { it.submittedAt > 0L }
             .filter { userId.isNullOrBlank() || it.userId == userId }
-            .mapNotNull { parseSubmissionDate(it.submittedAt) }
+            .filter { it.submittedAt > 0L || (it.reviewedAt != null && it.reviewedAt > 0L) }
+            .mapNotNull { sub ->
+                val ts = if (sub.status.equals("approved", ignoreCase = true) && sub.reviewedAt != null && sub.reviewedAt > 0L) {
+                    sub.reviewedAt
+                } else {
+                    sub.submittedAt
+                }
+                parseSubmissionDate(ts)
+            }
             .filter { !it.isAfter(today) }
             .distinct()
             .sorted()
@@ -310,11 +317,21 @@ object DateTimeUtils {
 
     fun parseToEpochMillis(timestampInput: Any?): Long {
         if (timestampInput == null) return 0L
+
         if (timestampInput is Number) {
             val num = timestampInput.toLong()
             return if (num > 0L && num < 10_000_000_000L) num * 1000L else num
         }
+
         if (timestampInput is java.util.Date) return timestampInput.time
+
+        // 1. Firebase Timestamp check
+        try {
+            if (timestampInput is com.google.firebase.Timestamp) {
+                return timestampInput.toDate().time
+            }
+        } catch (_: Throwable) {}
+
         try {
             if (timestampInput::class.java.simpleName.contains("Timestamp") ||
                 timestampInput.javaClass.name.contains("Timestamp")) {
@@ -322,27 +339,53 @@ object DateTimeUtils {
                 val d = method.invoke(timestampInput) as? java.util.Date
                 if (d != null) return d.time
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
 
+        // 2. Map payload check (e.g. JSON or Firestore Map with seconds/nanoseconds)
+        if (timestampInput is Map<*, *>) {
+            val sec = (timestampInput["seconds"] ?: timestampInput["_seconds"] ?: timestampInput["secondsSeconds"]) as? Number
+            val nano = (timestampInput["nanoseconds"] ?: timestampInput["_nanoseconds"]) as? Number
+            if (sec != null) {
+                val s = sec.toLong()
+                val n = nano?.toLong() ?: 0L
+                if (s > 0L) return s * 1000L + (n / 1_000_000L)
+            }
+        }
+
+        // 3. String parsing with Unicode space normalization & flexible date formats
         if (timestampInput is String) {
-            val trimmed = timestampInput.trim()
-            if (trimmed.isEmpty()) return 0L
+            val rawStr = timestampInput.trim()
+            if (rawStr.isEmpty()) return 0L
 
-            val parsedLong = trimmed.toLongOrNull()
+            val parsedLong = rawStr.toLongOrNull()
             if (parsedLong != null) {
                 return if (parsedLong > 0L && parsedLong < 10_000_000_000L) parsedLong * 1000L else parsedLong
             }
 
-            try { return Instant.parse(trimmed).toEpochMilli() } catch (_: Exception) {}
-            try { return ZonedDateTime.parse(trimmed).toInstant().toEpochMilli() } catch (_: Exception) {}
-            try { return OffsetDateTime.parse(trimmed).toInstant().toEpochMilli() } catch (_: Exception) {}
+            // Normalize narrow non-break spaces (\u202F) & non-breaking spaces (\u00A0)
+            val cleanStr = rawStr
+                .replace("\u202F", " ")
+                .replace("\u00A0", " ")
+                .replace(" ", " ")
+                .replace("  ", " ")
+                .trim()
+
+            try { return Instant.parse(cleanStr).toEpochMilli() } catch (_: Exception) {}
+            try { return ZonedDateTime.parse(cleanStr).toInstant().toEpochMilli() } catch (_: Exception) {}
+            try { return OffsetDateTime.parse(cleanStr).toInstant().toEpochMilli() } catch (_: Exception) {}
+
+            val strNoTz = cleanStr
+                .replace("UTC+8", "")
+                .replace("UTC", "")
+                .replace("at ", "")
+                .replace("  ", " ")
+                .trim()
 
             val patterns = listOf(
-                "MMMM d, yyyy 'at' h:mm:ss a 'UTC+8'",
-                "MMMM d, yyyy 'at' h:mm:ss a",
-                "MMMM d, yyyy, h:mm:ss a",
-                "MMMM d, yyyy, h:mm a",
-                "MMM d, yyyy, h:mm a",
+                "MMMM d, yyyy h:mm:ss a",
+                "MMMM d, yyyy h:mm a",
+                "MMM d, yyyy h:mm:ss a",
+                "MMM d, yyyy h:mm a",
                 "MMMM d, yyyy",
                 "yyyy-MM-dd HH:mm:ss",
                 "yyyy-MM-dd HH:mm",
@@ -353,10 +396,10 @@ object DateTimeUtils {
                 try {
                     val formatter = DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH)
                     if (pattern.contains("HH:mm") || pattern.contains("h:mm")) {
-                        val parsed = LocalDateTime.parse(trimmed, formatter)
+                        val parsed = LocalDateTime.parse(strNoTz, formatter)
                         return parsed.atZone(ZoneId.of("Asia/Manila")).toInstant().toEpochMilli()
                     } else {
-                        val parsedDate = LocalDate.parse(trimmed, formatter)
+                        val parsedDate = LocalDate.parse(strNoTz, formatter)
                         return parsedDate.atStartOfDay(ZoneId.of("Asia/Manila")).toInstant().toEpochMilli()
                     }
                 } catch (_: Exception) {}
@@ -386,7 +429,8 @@ object DateTimeUtils {
         return weekDates.mapIndexed { idx, date ->
             val dayName = dayNames[idx]
             val subsOnDay = approvedSubs.filter { sub ->
-                val subDate = parseSubmissionDate(sub.submittedAt)
+                val effectiveTs = if (sub.reviewedAt != null && sub.reviewedAt > 0L) sub.reviewedAt else sub.submittedAt
+                val subDate = parseSubmissionDate(effectiveTs)
                 subDate != null && subDate == date
             }
             val pointsFromSubs = subsOnDay.sumOf { it.awardedPoints ?: it.pointValue }
@@ -443,7 +487,12 @@ object DateTimeUtils {
                 val isPastOrToday = !date.isAfter(today)
 
                 val daySubs = userSubmissions.filter { sub ->
-                    val subDate = parseSubmissionDate(sub.submittedAt)
+                    val effectiveTs = if (sub.status.equals("approved", ignoreCase = true) && sub.reviewedAt != null && sub.reviewedAt > 0L) {
+                        sub.reviewedAt
+                    } else {
+                        sub.submittedAt
+                    }
+                    val subDate = parseSubmissionDate(effectiveTs)
                     subDate != null && subDate == date
                 }
                 val approvedDaySubs = daySubs.filter { it.status.equals("approved", ignoreCase = true) }

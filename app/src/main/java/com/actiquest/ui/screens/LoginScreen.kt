@@ -95,6 +95,9 @@ fun LoginScreen(
     var pendingGoogleIsAdmin by remember { mutableStateOf(false) }
     var showGoogleSetupDialog by remember { mutableStateOf(false) }
 
+    var termsAccepted by remember { mutableStateOf(false) }
+    var isAdultAttested by remember { mutableStateOf(false) }
+
     val currentCollege = remember(selectedCollegeCode) {
         CollegeCatalog.COLLEGES.find { it.code == selectedCollegeCode } ?: CollegeCatalog.COLLEGES.first()
     }
@@ -754,6 +757,66 @@ fun LoginScreen(
                                     }
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Terms & Privacy Acceptance Checkbox
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { termsAccepted = !termsAccepted }
+                                    .padding(vertical = 2.dp)
+                            ) {
+                                Checkbox(
+                                    checked = termsAccepted,
+                                    onCheckedChange = { termsAccepted = it }
+                                )
+                                Text(
+                                    "I accept the Terms of Use and Privacy Policy (v1.2.0-beta)",
+                                    fontFamily = SfSemiFontFamily,
+                                    fontSize = 11.sp,
+                                    color = if (isDark) Color.White else LightTextPrimary
+                                )
+                            }
+
+                            // 18+ Adult Self-Attestation Checkbox
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { isAdultAttested = !isAdultAttested }
+                                    .padding(vertical = 2.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isAdultAttested,
+                                    onCheckedChange = { isAdultAttested = it }
+                                )
+                                Text(
+                                    "I attest that I am 18 years of age or older",
+                                    fontFamily = SfSemiFontFamily,
+                                    fontSize = 11.sp,
+                                    color = if (isDark) Color.White else LightTextPrimary
+                                )
+                            }
+
+                            if (!isAdultAttested) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.12f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.4f)),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        "⚠️ Age Gate: Beta self-activation is for users 18+. Minors require parent/legal guardian consent verification through their school administration before activation.",
+                                        fontFamily = SfSemiFontFamily,
+                                        fontSize = 10.5.sp,
+                                        color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309),
+                                        modifier = Modifier.padding(8.dp),
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -838,6 +901,16 @@ fun LoginScreen(
                                     if (selectedTab == UserRoleTab.STUDENT && authMode == AuthMode.SIGN_UP) {
                                         if (firstName.isBlank() || lastName.isBlank() || email.isBlank() || password.isBlank()) {
                                             errorMessage = "Please enter your first name, last name, email, and password"
+                                            isLoading = false
+                                            return@launch
+                                        }
+                                        if (!termsAccepted) {
+                                            errorMessage = "Please accept the Terms of Use and Privacy Policy to register."
+                                            isLoading = false
+                                            return@launch
+                                        }
+                                        if (!isAdultAttested) {
+                                            errorMessage = "Self-activation is restricted to adults (18+). Minors require verified guardian consent."
                                             isLoading = false
                                             return@launch
                                         }
@@ -938,8 +1011,16 @@ fun LoginScreen(
                                         errorMessage = null
                                         try {
                                             val credentialManager = CredentialManager.create(context)
-                                            val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-                                            val webClientId = if (resId != 0) context.getString(resId) else "1019623769913-placeholder.apps.googleusercontent.com"
+                                            val webClientId = if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()) {
+                                                BuildConfig.GOOGLE_WEB_CLIENT_ID
+                                            } else {
+                                                try {
+                                                    val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+                                                    if (resId != 0) context.getString(resId) else "36840791675-bfvkdu0ptlijokih99d5gj91vjho1m77.apps.googleusercontent.com"
+                                                } catch (_: Exception) {
+                                                    "36840791675-bfvkdu0ptlijokih99d5gj91vjho1m77.apps.googleusercontent.com"
+                                                }
+                                            }
 
                                             val googleIdOption = GetGoogleIdOption.Builder()
                                                 .setFilterByAuthorizedAccounts(false)
@@ -956,12 +1037,6 @@ fun LoginScreen(
                                             if (cred is CustomCredential && cred.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                                                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(cred.data)
                                                 val idToken = googleIdTokenCredential.idToken
-                                                if (!Repository.checkBetaAccess(googleIdTokenCredential.id)) {
-                                                    isLoading = false
-                                                    errorMessage = "This account is not approved for the ActiQuest beta. Contact the administrator to request access."
-                                                    return@launch
-                                                }
-
                                                 val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
                                                 val authResult = Repository.signInWithGoogleCredential(firebaseCredential)
                                                 isLoading = false
@@ -990,6 +1065,10 @@ fun LoginScreen(
                                             isLoading = false
                                             if (e is GetCredentialCancellationException) {
                                                 // User canceled sign-in dialog silently
+                                            } else if (e.message?.contains("28433") == true || e.message?.contains("Cannot find a matching credential", ignoreCase = true) == true) {
+                                                errorMessage = "Google One Tap credential error [28433]. Ensure your app's SHA-1 & SHA-256 fingerprints are added in Firebase Console (Project Settings > Your apps)."
+                                            } else if (e.message?.contains("blocked", ignoreCase = true) == true || e.message?.contains("Requests from this Android client application", ignoreCase = true) == true) {
+                                                errorMessage = "Google API Request Blocked: Your app's SHA-1 fingerprint or API Key restrictions are blocking requests. Add your SHA-1 fingerprint in Firebase Console (Project Settings > Your apps)."
                                             } else {
                                                 errorMessage = e.localizedMessage ?: "Google Sign-In failed. Please try again."
                                             }

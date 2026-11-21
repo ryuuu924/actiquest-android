@@ -23,7 +23,7 @@ We expect all contributors to adhere to a respectful, welcoming, and inclusive s
 ### Initializing Project
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR_GITHUB_USERNAME/actiquest-android.git
+   git clone https://github.com/ryuuu924/actiquest-android.git
    cd actiquest-android
    ```
 2. Copy `google-services.json.template` to `app/google-services.json` and configure your Firebase project credentials.
